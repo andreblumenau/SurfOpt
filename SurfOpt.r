@@ -58,14 +58,14 @@ Sigmoid <- function(x){
 }
 
 LogLoss <- function(x){
-	return(-log(Sigmoid(x)))#Simplified Logistic Loss acts as if every example as 1
+	return(-log(Sigmoid(x)))#Simplified Logistic Loss acts as if every example was equal to 1
 }
 
 f_of_x <- function(x,smooth_ratio){
 	return (x^2*exp(smooth_ratio))
 }
 
-rotate2 <- function(x,add_x,add_y,angle_theta,smooth_ratio){
+rotate_raw <- function(x,add_x,add_y,angle_theta,smooth_ratio){
 	f_x <- f_of_x(x,smooth_ratio)
 	return (rotate_point(x,f_x,add_x,add_y,angle_theta))
 }
@@ -88,7 +88,7 @@ get_rotated_curve <- function(max_x,max_y,add_x,add_y,angle_theta,smooth_ratio,n
 	y = seq(from = -1*2*max_value, to = max_value*2, by = (max_value/number_of_points))
 	
 	for( i in 1:(length(x))){			
-			tuple <- rotate2(x[i],add_x,add_y,angle_theta,smooth_ratio)
+			tuple <- rotate_raw(x[i],add_x,add_y,angle_theta,smooth_ratio)
 			x[i] <- tuple[1]
 			y[i] <- tuple[2]
 	}		
@@ -121,9 +121,6 @@ f1_score <- function(perf,tp,tn,fp,fn){
 }
 
 matthews_correlation_coefficient <- function(tp,tn,fp,fn){		
-		#if(min(tp,tn,fp,fn)<=0){
-		#	return(0)
-		#}
 		
 		pp = tp+fp #predicted positive
 		cp = tp+fn #condition positive
@@ -149,8 +146,6 @@ random_angle <- function(){
 	return(runif(1,-2*pi,2*pi))
 }
 
-
-#table_columns <- c("ADD_X","ADD_Y","ANGLE","SMTH","ACC","NPV","TNR","DistanceFromIdeal")
 classify_with_curve <- function(x_coordinates,y_coordinates,class_of_points,add_x,add_y,angle_theta,smooth_ratio,number_of_points){
 	
 	evaluation = make_evaluation_matrix()
@@ -158,7 +153,7 @@ classify_with_curve <- function(x_coordinates,y_coordinates,class_of_points,add_
 	max_actual_x = max(x_coordinates)
 	max_actual_y = max(y_coordinates)
 	curve_points = get_rotated_curve(max_actual_x,max_actual_y,add_x,add_y,angle_theta,smooth_ratio,number_of_points)	
-	evaluation = curve_loss2(evaluation,x_coordinates,y_coordinates,class_of_points,add_x,add_y,angle_theta,smooth_ratio)
+	evaluation = curve_evaluation(evaluation,x_coordinates,y_coordinates,class_of_points,add_x,add_y,angle_theta,smooth_ratio)
 	return(evaluation)
 }
 
@@ -166,13 +161,12 @@ classify_with_heuristic <- function(x_coordinates,y_coordinates,class_of_points,
 	max_actual_x = max(x_coordinates)
 	max_actual_y = max(y_coordinates)	
 	evaluation = make_evaluation_matrix()
-	evaluation = curve_loss2(evaluation,x_coordinates,y_coordinates,class_of_points,parameters[,"ADD_X"],parameters[,"ADD_Y"],parameters[,"ANGLE"],parameters[,"SMTH"])
+	evaluation = curve_evaluation(evaluation,x_coordinates,y_coordinates,class_of_points,parameters[,"ADD_X"],parameters[,"ADD_Y"],parameters[,"ANGLE"],parameters[,"SMTH"])
 	
 	evaluation 	 = cbind(evaluation,parameters[,"ITER"])
 	colnames(evaluation) <- c( "ACC","NPV","TNR","TP","TN","FP","FN","MCC","F1","ERROR","ITER")
 	return(evaluation)
 }
-
 
 transform_points <- function(x_coordinates,y_coordinates,add_x,add_y,angle_theta){	
 	angle_theta = angle_theta*-1
@@ -192,7 +186,7 @@ make_evaluation_matrix <- function(){
 	return(evaluation)
 }
 
-curve_loss2 <- function(evaluation,x_coordinates,y_coordinates,class_of_points,add_x,add_y,angle_theta,smooth_ratio){
+curve_evaluation <- function(evaluation,x_coordinates,y_coordinates,class_of_points,add_x,add_y,angle_theta,smooth_ratio){
 
 	transformed_points = transform_points(x_coordinates,y_coordinates,add_x,add_y,angle_theta)
 	y_curve_equivalent = f_of_x(transformed_points[,1],smooth_ratio)
@@ -245,6 +239,7 @@ curve_loss2 <- function(evaluation,x_coordinates,y_coordinates,class_of_points,a
 	return(evaluation)
 }
 
+#AMSgrad optimized SurfOpt algorithm.
 SurfOpt <- function(actual_points_x,actual_points_y,class_of_points,add_x,add_y,angle_theta,smooth_ratio,alpha_parameter,tnr_thresold,tpr_thresold,maxIterations,number_of_points){	
 	
 	max_actual_x 	= max(actual_points_x)
@@ -316,7 +311,7 @@ SurfOpt <- function(actual_points_x,actual_points_y,class_of_points,add_x,add_y,
 	
 	for( i in 1:maxIterations){
 		curve_points = get_rotated_curve(max_actual_x,max_actual_y,add_x,add_y,angle_theta,smooth_ratio,number_of_points)
-		evaluation = curve_loss2(evaluation,actual_points_x,actual_points_y,class_of_points,add_x,add_y,angle_theta,smooth_ratio)
+		evaluation = curve_evaluation(evaluation,actual_points_x,actual_points_y,class_of_points,add_x,add_y,angle_theta,smooth_ratio)
 
 		result_table[i,] = c(add_x,add_y,angle_theta,smooth_ratio,evaluation[,"ACC"],evaluation[,"NPV"],evaluation[,"TNR"],i,evaluation[,"TP"],evaluation[,"TN"],evaluation[,"FP"],evaluation[,"FN"],error_value,evaluation[,"MCC"],evaluation[,"F1"])				
 
